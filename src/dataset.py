@@ -67,8 +67,8 @@ class BaseDataset(Dataset):
 
     def divide_datasets(self):
         for dataset in self.datasets:
-            if (not dataset in self.datasets_test) and (not dataset in self.datasets_validation):
-                self.datasets_train += [dataset]
+            #if (not dataset in self.datasets_test) and (not dataset in self.datasets_validation):
+            self.datasets_train += [dataset]
 
     def dataset_name(self, i):
         return self.datasets[i]

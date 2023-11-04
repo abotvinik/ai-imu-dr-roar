@@ -460,6 +460,8 @@ class TORCHIEKF(torch.nn.Module, NUMPYIEKF):
         path_iekf = os.path.join(args.path_temp, "iekfnets.p")
         if os.path.isfile(path_iekf):
             mondict = torch.load(path_iekf)
+            print(mondict)
+            
             self.load_state_dict(mondict)
             cprint("IEKF nets loaded", 'green')
         else:

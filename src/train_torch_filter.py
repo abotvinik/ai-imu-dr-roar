@@ -102,7 +102,8 @@ def prepare_loss_data(args, dataset):
 
     # prepare delta_p_gt
     list_rpe = {}
-    for dataset_name, Ns in dataset.datasets_train_filter.items():
+    for dataset_name in dataset.datasets_train: #testing
+        Ns = [0, None]
         t, ang_gt, p_gt, v_gt, u = prepare_data(args, dataset, dataset_name, 0)
         p_gt = p_gt.double()
         Rot_gt = torch.zeros(Ns[1], 3, 3)
@@ -149,26 +150,28 @@ def prepare_loss_data(args, dataset):
 def train_loop(args, dataset, epoch, iekf, optimizer, seq_dim):
     loss_train = 0
     optimizer.zero_grad()
-    for i, (dataset_name, Ns) in enumerate(dataset.datasets_train_filter.items()):
-        t, ang_gt, p_gt, v_gt, u, N0 = prepare_data_filter(dataset, dataset_name, Ns,
-                                                                  iekf, seq_dim)
+    for i, dataset_name in enumerate(dataset.datasets_train):
+        t, ang_gt, p_gt, v_gt, u, N0 = prepare_data_filter(dataset, dataset_name, [0, len(dataset.get_data(dataset_name)[0])],iekf, seq_dim)
 
         loss = mini_batch_step(dataset, dataset_name, iekf,
                                dataset.list_rpe[dataset_name], t, ang_gt, p_gt, v_gt, u, N0)
 
-        if loss is -1 or torch.isnan(loss):
-            cprint("{} loss is invalid".format(i), 'yellow')
-            continue
-        elif loss > max_loss:
-            cprint("{} loss is too high {:.5f}".format(i, loss), 'yellow')
-            continue
-        else:
-            loss_train += loss
-            cprint("{} loss: {:.5f}".format(i, loss))
+        # if loss is -1 or torch.isnan(loss):
+        #     cprint("{} loss is invalid".format(i), 'yellow')
+        #     continue
+        # elif loss > max_loss:
+        #     cprint("{} loss is too high {:.5f}".format(i, loss), 'yellow')
+        #     continue
+        # else:
+        #     loss_train += loss
+        #     cprint("{} loss: {:.5f}".format(i, loss))
+
+        loss_train += loss
+        cprint("{} loss: {:.5f}".format(i, loss))
 
     if loss_train == 0: 
         return 
-    loss_train.backward()  # loss_train.cuda().backward()  
+    loss_train.cuda().backward()  # loss_train.cuda().backward() //changed to add the .cuda() 
     g_norm = torch.nn.utils.clip_grad_norm_(iekf.parameters(), max_grad_norm)
     if np.isnan(g_norm) or g_norm > 3*max_grad_norm:
         cprint("gradient norm: {:.5f}".format(g_norm), 'yellow')
@@ -247,15 +250,15 @@ def get_start_and_end(seq_dim, u):
         N = N0 + seq_dim
     return N0, N
 
-
+#Edited to use cuda for tensors
 def precompute_lost(Rot, p, list_rpe, N0):
     N = p.shape[0]
     Rot_10_Hz = Rot[::10]
     p_10_Hz = p[::10]
-    idxs_0 = torch.Tensor(list_rpe[0]).clone().long() - int(N0 / 10)
-    idxs_end = torch.Tensor(list_rpe[1]).clone().long() - int(N0 / 10)
+    idxs_0 = torch.Tensor(list_rpe[0], device="cuda").clone().long() - int(N0 / 10)
+    idxs_end = torch.Tensor(list_rpe[1], device="cuda").clone().long() - int(N0 / 10)
     delta_p_gt = list_rpe[2]
-    idxs = torch.Tensor(idxs_0.shape[0]).byte()
+    idxs = torch.Tensor(idxs_0.shape[0], device="cuda").byte()
     idxs[:] = 1
     idxs[idxs_0 < 0] = 0
     idxs[idxs_end >= int(N / 10)] = 0
